@@ -44,3 +44,9 @@ logs/
 
 # Environment
 .env
+
+# YOLOv5 repo (too large)
+models/yolo/yolov5/
+
+# Pretrained weights
+*.pt
