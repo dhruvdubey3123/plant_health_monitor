@@ -1,0 +1,44 @@
+# Runs the API and the UI as two services off the same image.
+#   docker compose -f docker/docker-compose.yml up --build
+#
+# Trained weights and processed metadata are not in the image; they are
+# mounted from the host so the image stays small. See the README for which
+# files are needed under models/ and data/processed/.
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: plant-health-monitor:latest
+    container_name: plant-health-api
+    command: python src/api/main.py
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../models:/app/models:ro
+      - ../data/processed:/app/data/processed:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    restart: unless-stopped
+
+  ui:
+    image: plant-health-monitor:latest
+    container_name: plant-health-ui
+    depends_on:
+      api:
+        condition: service_healthy
+    command: >
+      streamlit run src/ui/app.py
+      --server.port 8501
+      --server.address 0.0.0.0
+      --server.headless true
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "8501:8501"
+    restart: unless-stopped

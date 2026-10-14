@@ -1,0 +1,26 @@
+.git
+.gitignore
+__pycache__/
+*.py[cod]
+venv/
+env/
+.ipynb_checkpoints/
+*.ipynb
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+logs/
+*.log
+.env
+
+# Datasets and weights are mounted at runtime, not baked into the image.
+data/raw/
+data/processed/
+data/train/
+data/val/
+data/test/
+models/
+docs/
+notebooks/
+tests/
