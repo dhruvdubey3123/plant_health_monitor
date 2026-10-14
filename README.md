@@ -1,74 +1,24 @@
 # Smart Plant Health Monitor
 
-Classifies plant disease from a leaf image and forecasts nutrient needs from
-sensor time series. ResNet50 reaches **90.82% validation accuracy across 38
-classes**; a YOLOv5 detector localises affected regions, and an LSTM predicts
-nutrient requirements from 30-day sensor sequences.
+Detects crop disease from a single leaf photograph and forecasts nutrient
+requirements from sensor history.
+
+A ResNet50 classifier reaches **90.82% validation accuracy across 38 disease
+and healthy classes**, a YOLOv5 detector localises affected leaf regions at
+**86.6% mAP@0.5**, and an LSTM predicts per-nutrient need levels from 30-day
+sensor sequences. All three are served behind a FastAPI service with a
+Streamlit interface.
 
 Built for DATA602 at the University of Maryland.
 
----
-
-## Results
-
-| Task | Model | Metric | Result |
-| --- | --- | --- | --- |
-| Disease classification | ResNet50 (ImageNet init, 38-class head) | Best val accuracy | **90.82%** |
-| Leaf / lesion detection | YOLOv5 (5 classes) | mAP@0.5 | **86.6%** |
-| Nutrient-need forecasting | LSTM (2 layers, 128 hidden) | Val accuracy | **69.4%** |
-
-ResNet was trained for 25 epochs; final-epoch validation accuracy was 89.38%
-with a best checkpoint at 90.82%. Per-epoch loss and accuracy curves are in
-`models/resnet/training_history.json` and `models/lstm/training_history.json`.
-YOLO training curves, confusion matrix and validation batches are under
-`models/yolo/plant_disease/`.
-
-The LSTM at 69.4% is the weak component. It trains on synthetically generated
-sensor sequences, which is the honest limitation of that part of the system.
+![Streamlit interface classifying a cedar apple rust sample and showing predicted nutrient needs](docs/ui_prediction.png)
 
 ---
 
-## How it works
+## Quick start
 
-```
-leaf image ──► YOLOv5 detection ──► crop
-                                      │
-                                      ▼
-                             ResNet50 classifier ──► disease (38 classes)
-
-sensor history (30 days × 11 features) ──► LSTM ──► nutrient need per nutrient
-                                                      (low / medium / high)
-```
-
-Both paths are served by a FastAPI backend and surfaced through a Streamlit UI.
-
-### Endpoints
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/` | API metadata and model summary |
-| GET | `/health` | Health check |
-| POST | `/predict` | Disease classification from an uploaded image |
-| POST | `/nutrition` | Nutrient-need predictions |
-| POST | `/analyze` | Both, in one call |
-
----
-
-## Dataset
-
-[New Plant Diseases Dataset](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset)
-— roughly 87,000 RGB leaf images across 38 healthy and diseased classes.
-Images are resized to 256, centre-cropped to 224 and normalised with ImageNet
-statistics.
-
-Sensor data for the LSTM is generated synthetically by
-`src/data_preparation/generate_timeseries.py`.
-
----
-
-## Setup
-
-### 1. Install
+Everything needed to serve predictions is in the repository, including the
+trained weights.
 
 ```bash
 git clone https://github.com/dhruvdubey3123/plant_health_monitor.git
@@ -76,120 +26,172 @@ cd plant_health_monitor
 
 python -m venv venv
 source venv/bin/activate          # Windows: .\venv\Scripts\Activate.ps1
-
 pip install -r requirements.txt
+
+python src/api/main.py            # API on :8000
+streamlit run src/ui/app.py       # UI on :8501, separate terminal
 ```
 
-### 2. Weights and processed metadata
-
-All trained weights and metadata are committed, so the API runs straight
-after `pip install`. The clone is roughly 130MB because of the checkpoints.
-
-| File | Size | Contents |
-| --- | --- | --- |
-| `models/resnet/best.pth` | 90MB | ResNet50, 38-class head, 90.82% val accuracy |
-| `models/yolo/plant_disease/weights/best.pt` | 28MB | YOLOv5, 5 classes, 86.6% mAP@0.5 |
-| `models/lstm/best.pth` | 0.8MB | 2-layer LSTM, 69.4% val accuracy |
-| `data/processed/resnet/class_mapping.json` | 1KB | class name to index for all 38 classes |
-| `data/processed/lstm/metadata.json` | <1KB | sequence length, feature count, nutrient list |
-
-To retrain rather than use the committed weights:
-`python src/data_preparation/prepare_resnet_data.py` then
-`python src/models/train_resnet.py`.
-
-### 3. Train (only if regenerating weights)
-
-```bash
-python src/data_preparation/prepare_resnet_data.py
-python src/models/train_resnet.py
-
-python src/data_preparation/prepare_yolo_data.py
-python src/models/train_yolo.py
-
-python src/data_preparation/generate_timeseries.py
-python src/models/train_lstm.py
-```
-
-Hyperparameters live in `config/config.yaml`: batch size 32, 50 max epochs,
-learning rate 1e-3, early-stopping patience 10.
-
-### 4. Run
-
-```bash
-# Terminal 1 — API on :8000
-python src/api/main.py
-
-# Terminal 2 — UI on :8501
-streamlit run src/ui/app.py
-```
-
-Then open http://localhost:8501.
-
-![Streamlit UI showing a Cedar apple rust classification and nutrient needs](docs/ui_prediction.png)
-
-### Docker
+Or with Docker:
 
 ```bash
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-Weights and processed metadata are mounted from the host rather than baked
-into the image, so step 2 still applies.
+Verify the API directly:
+
+```bash
+curl -X POST http://localhost:8000/predict -F "file=@path/to/leaf.jpg"
+```
 
 ---
 
-## Repository layout
+## Results
 
-```text
-plant_health_monitor/
-├── config/config.yaml              # paths, model and training hyperparameters
-├── src/
-│   ├── data_preparation/           # dataset exploration, ResNet/YOLO prep, sensor generation
-│   ├── models/                     # train_resnet.py, train_yolo.py, train_lstm.py
-│   ├── api/                        # FastAPI app (main.py) and inference (inference.py)
-│   └── ui/app.py                   # Streamlit frontend
-├── models/                         # trained weights and training histories
-├── docker/                         # Dockerfile and docker-compose.yml
-├── docs/                           # figures
-└── requirements.txt
+| Task | Model | Metric | Result |
+| --- | --- | --- | --- |
+| Disease classification | ResNet50, 38-class head | Best validation accuracy | **90.82%** |
+| Leaf region detection | YOLOv5, 5 classes | mAP@0.5 | **86.6%** |
+| Nutrient-need forecasting | LSTM, 2 layers, 128 hidden | Validation accuracy | **69.4%** |
+
+ResNet50 trained 25 epochs; final-epoch validation accuracy was 89.38% with the
+best checkpoint at 90.82%. Per-epoch curves are in
+`models/resnet/training_history.json` and `models/lstm/training_history.json`.
+YOLO training curves, the confusion matrix, PR and F1 curves, and annotated
+validation batches are under `models/yolo/plant_disease/`.
+
+### Observed behaviour on held-out samples
+
+| Input | Predicted | Confidence |
+| --- | --- | --- |
+| `AppleCedarRust1.JPG` | Apple / Cedar apple rust | 98.1% |
+| `PotatoHealthy1.JPG` | Potato / healthy | 93.8% |
+| `TomatoEarlyBlight1.JPG` | Tomato / **Late** blight | 62.0% (Early blight second at 22.5%) |
+
+The third row is a real failure mode worth naming: early and late blight on
+tomato share visual symptoms, and the classifier confuses them. Lesion margin
+and halo pattern are the distinguishing features, and neither survives the
+224px centre crop reliably.
+
+---
+
+## How it works
+
 ```
+leaf image ──► YOLOv5 detection ──► region crop
+                                         │
+                                         ▼
+                              ResNet50 classifier ──► 1 of 38 classes
+                                                      + top-3 confidences
+
+sensor history ──► LSTM ──► per-nutrient need level
+(30 days × 11 features)      (low / medium / high) × 10 nutrients
+```
+
+**Classification.** ResNet50 initialised from ImageNet, final layer replaced
+with dropout(0.5) and a 2048 to 38 linear head. Images resized to 256,
+centre-cropped to 224, normalised with ImageNet statistics. Batch size 32,
+Adam at 1e-3, early stopping with patience 10.
+
+**Detection.** YOLOv5 trained on a 5-class subset to localise leaf and lesion
+regions before classification, so the classifier sees the leaf rather than the
+background.
+
+**Forecasting.** A 2-layer LSTM over 30-day sequences of 11 sensor features
+(temperature, humidity, soil moisture, light, NPK and others), with a head
+emitting 3 logits per nutrient across 10 nutrients.
+
+### Endpoints
+
+| Method | Path | Returns |
+| --- | --- | --- |
+| `GET` | `/` | API metadata and model summary |
+| `GET` | `/health` | Health check |
+| `POST` | `/predict` | Disease class with top-3 confidences |
+| `POST` | `/nutrition` | Nutrient need levels with per-class probabilities |
+| `POST` | `/analyze` | Both, from a single image upload |
+
+---
+
+## Data
+
+**Images.** [New Plant Diseases Dataset](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset),
+roughly 87,000 RGB leaf photographs across 38 crop and condition classes
+spanning apple, blueberry, cherry, corn, grape, orange, peach, pepper, potato,
+raspberry, soybean, squash, strawberry and tomato.
+
+**Sensor series.** Generated synthetically by
+`src/data_preparation/generate_timeseries.py` for 1,000 simulated plants over
+30-day windows. This is the honest weak point of the nutrient model: no real
+field sensor data was available.
+
+---
+
+## What is in the repository
+
+| Path | Contents |
+| --- | --- |
+| `src/data_preparation/` | Dataset exploration, ResNet and YOLO data prep, sensor generation |
+| `src/models/` | `train_resnet.py`, `train_yolo.py`, `train_lstm.py` |
+| `src/api/` | `main.py` (FastAPI routes), `inference.py` (model loading and prediction) |
+| `src/ui/app.py` | Streamlit interface |
+| `models/` | Trained weights and training histories for all three models |
+| `config/config.yaml` | Paths, model settings and training hyperparameters |
+| `docker/` | `Dockerfile` and `docker-compose.yml` |
+
+Weights are committed, so the clone is roughly 130MB: ResNet 90MB, YOLO 28MB,
+LSTM under 1MB. To retrain rather than use them, run
+`python src/data_preparation/prepare_resnet_data.py` followed by
+`python src/models/train_resnet.py`.
 
 ---
 
 ## Applying this to overhead imagery
 
-The pipeline is a two-stage detect-then-classify design, which is the same
-shape used for aerial and satellite work. Moving it to overhead imagery means
-changing the data, not the architecture:
+The design is two-stage detect-then-classify, the same structure used in
+aerial and satellite analysis. Moving it to overhead imagery changes the data
+handling rather than the architecture:
 
-- **Tiling.** Satellite scenes are far larger than the 224px crops here, so
-  input becomes fixed-size tiles with overlap, and predictions are stitched
-  back to geographic coordinates.
-- **Channels.** The ResNet stem takes 3-channel RGB. Multispectral input needs
-  a widened first convolution, with ImageNet weights averaged or repeated
-  across the new channels.
-- **Class imbalance.** The 38 leaf classes are roughly balanced; overhead
-  targets usually are not, which shifts evaluation toward per-class recall and
-  precision-recall area rather than plain accuracy.
-- **Label scarcity.** Leaf datasets are large and public. Overhead labelling
-  is the expensive part, which pushes toward pretrained backbones and careful
-  validation splits that respect geography rather than random splits.
+**Tiling and georeferencing.** Satellite scenes are orders of magnitude larger
+than a 224px crop, so input becomes fixed-size overlapping tiles and
+predictions are stitched back to geographic coordinates. Overlap has to exceed
+the largest expected object or targets get cut at tile boundaries.
 
-What transfers unchanged is the training and evaluation scaffolding: the
-detection-then-classification split, the checkpointing and history logging in
-`src/models/`, and the inference-service pattern in `src/api/`.
+**Spectral channels.** The ResNet stem expects 3-channel RGB. Multispectral or
+SAR input needs a widened first convolution, with pretrained weights averaged
+or repeated across the added channels rather than randomly initialised.
+
+**Class imbalance.** The 38 leaf classes here are roughly balanced. Overhead
+targets rarely are, which shifts evaluation away from plain accuracy toward
+per-class recall and precision-recall area.
+
+**Validation splits.** Random splits leak when neighbouring tiles land on both
+sides. Splits have to be held out by geography or capture date, which usually
+drops reported performance and makes it meaningful.
+
+**Label scarcity.** Leaf datasets are large and public; overhead annotation is
+the expensive constraint. That pushes toward pretrained backbones, weak
+supervision and careful use of whatever labelled area exists.
+
+What transfers unchanged is the scaffolding: the detect-then-classify split,
+checkpointing and history logging in `src/models/`, and the inference-service
+pattern in `src/api/`.
 
 ---
 
 ## Limitations
 
-- The LSTM trains on synthetic sensor data, so its 69.4% accuracy does not
-  represent performance on real field sensors.
-- The `/nutrition` endpoint generates a mock sequence when none is supplied;
-  real deployment needs sensor readings wired in.
+- The nutrient LSTM trains on synthetic sensor data. Its 69.4% accuracy says
+  nothing about performance on real field sensors.
+- `/nutrition` generates a mock sequence when none is supplied. Production use
+  needs real readings wired in.
 - Validation splits are random rather than stratified by field or capture
-  session, so the accuracy figure is likely optimistic relative to new
-  growing conditions.
+  session, so 90.82% is likely optimistic against genuinely new growing
+  conditions.
+- Early versus late blight on tomato is unreliable, as shown above.
+- The dataset is laboratory-style photographs on uniform backgrounds. Field
+  photographs with mixed foliage, shadow and varied lighting are a harder
+  problem than these numbers suggest.
 
 ---
 
@@ -204,12 +206,12 @@ DATA602 group project, University of Maryland.
 | Vansh Pradeep Jain | 122082892 |
 | Shantanu Ramavat | 121997708 |
 
-This repository holds the model training, inference and service work in this
-copy of the project. The group's shared repository is at
+This repository holds the model training, inference and service work for this
+copy of the project. The group's shared repository is
 [vjain0812/DATA602_smartPlant_health](https://github.com/vjain0812/DATA602_smartPlant_health).
 
 ---
 
 ## License
 
-Academic coursework. The dataset is covered by its own Kaggle licence.
+Academic coursework. The dataset carries its own Kaggle licence.
