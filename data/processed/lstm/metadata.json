@@ -1,0 +1,22 @@
+{
+  "num_plants": 1000,
+  "sequence_length": 30,
+  "num_features": 11,
+  "nutrients": [
+    "Nitrogen",
+    "Phosphorus",
+    "Potassium",
+    "Calcium",
+    "Magnesium",
+    "Sulfur",
+    "Iron",
+    "Manganese",
+    "Zinc",
+    "pH"
+  ],
+  "target_classes": [
+    "Low Need",
+    "Medium Need",
+    "High Need"
+  ]
+}

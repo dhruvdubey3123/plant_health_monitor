@@ -11,6 +11,10 @@ ENV/
 # Data
 data/raw/*
 data/processed/*
+!data/processed/resnet/
+!data/processed/resnet/class_mapping.json
+!data/processed/lstm/
+!data/processed/lstm/metadata.json
 data/train/*
 data/val/*
 data/test/*

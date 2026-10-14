@@ -82,17 +82,24 @@ pip install -r requirements.txt
 
 ### 2. Weights and processed metadata
 
-The LSTM and YOLO weights are committed. **The ResNet checkpoint and the
-processed metadata files are not** (size and dataset-licence reasons), so the
-API will not start from a clean clone until you produce them:
+The LSTM and YOLO weights and both metadata files are committed. The ResNet
+checkpoint is 95MB, so it ships as a release asset instead:
 
-| Needed at runtime | In the repo | How to produce |
-| --- | --- | --- |
-| `models/resnet/best.pth` | no | `python src/models/train_resnet.py` |
-| `models/lstm/best.pth` | yes | committed |
-| `models/yolo/plant_disease/weights/best.pt` | yes | committed |
-| `data/processed/resnet/class_mapping.json` | no | `python src/data_preparation/prepare_resnet_data.py` |
-| `data/processed/lstm/metadata.json` | no | `python src/data_preparation/generate_timeseries.py` |
+```bash
+curl -L -o models/resnet/best.pth \
+  https://github.com/dhruvdubey3123/plant_health_monitor/releases/download/v1.0-weights/best.pth
+```
+
+| Needed at runtime | Where it comes from |
+| --- | --- |
+| `models/resnet/best.pth` | [v1.0-weights release](https://github.com/dhruvdubey3123/plant_health_monitor/releases/tag/v1.0-weights) |
+| `models/lstm/best.pth` | committed |
+| `models/yolo/plant_disease/weights/best.pt` | committed |
+| `data/processed/resnet/class_mapping.json` | committed |
+| `data/processed/lstm/metadata.json` | committed |
+
+To regenerate rather than download: `python src/data_preparation/prepare_resnet_data.py`
+then `python src/models/train_resnet.py`.
 
 ### 3. Train (only if regenerating weights)
 
@@ -121,6 +128,8 @@ streamlit run src/ui/app.py
 ```
 
 Then open http://localhost:8501.
+
+![Streamlit UI showing a Cedar apple rust classification and nutrient needs](docs/ui_prediction.png)
 
 ### Docker
 
@@ -182,8 +191,6 @@ detection-then-classification split, the checkpointing and history logging in
   represent performance on real field sensors.
 - The `/nutrition` endpoint generates a mock sequence when none is supplied;
   real deployment needs sensor readings wired in.
-- The ResNet checkpoint is not committed, so the API needs a local training
-  run before it will serve predictions.
 - Validation splits are random rather than stratified by field or capture
   session, so the accuracy figure is likely optimistic relative to new
   growing conditions.

@@ -194,7 +194,10 @@ def main():
 
         render_disease(result["disease_analysis"])
         st.divider()
-        render_nutrition(result["nutritional_analysis"]["predictions"])
+        # /analyze returns the nutrition payload unwrapped; /nutrition nests it
+        # under "predictions". Accept either shape.
+        nutrition = result["nutritional_analysis"]
+        render_nutrition(nutrition.get("predictions", nutrition))
 
     st.divider()
     st.caption(
