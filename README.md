@@ -82,24 +82,20 @@ pip install -r requirements.txt
 
 ### 2. Weights and processed metadata
 
-The LSTM and YOLO weights and both metadata files are committed. The ResNet
-checkpoint is 95MB, so it ships as a release asset instead:
+All trained weights and metadata are committed, so the API runs straight
+after `pip install`. The clone is roughly 130MB because of the checkpoints.
 
-```bash
-curl -L -o models/resnet/best.pth \
-  https://github.com/dhruvdubey3123/plant_health_monitor/releases/download/v1.0-weights/best.pth
-```
+| File | Size | Contents |
+| --- | --- | --- |
+| `models/resnet/best.pth` | 90MB | ResNet50, 38-class head, 90.82% val accuracy |
+| `models/yolo/plant_disease/weights/best.pt` | 28MB | YOLOv5, 5 classes, 86.6% mAP@0.5 |
+| `models/lstm/best.pth` | 0.8MB | 2-layer LSTM, 69.4% val accuracy |
+| `data/processed/resnet/class_mapping.json` | 1KB | class name to index for all 38 classes |
+| `data/processed/lstm/metadata.json` | <1KB | sequence length, feature count, nutrient list |
 
-| Needed at runtime | Where it comes from |
-| --- | --- |
-| `models/resnet/best.pth` | [v1.0-weights release](https://github.com/dhruvdubey3123/plant_health_monitor/releases/tag/v1.0-weights) |
-| `models/lstm/best.pth` | committed |
-| `models/yolo/plant_disease/weights/best.pt` | committed |
-| `data/processed/resnet/class_mapping.json` | committed |
-| `data/processed/lstm/metadata.json` | committed |
-
-To regenerate rather than download: `python src/data_preparation/prepare_resnet_data.py`
-then `python src/models/train_resnet.py`.
+To retrain rather than use the committed weights:
+`python src/data_preparation/prepare_resnet_data.py` then
+`python src/models/train_resnet.py`.
 
 ### 3. Train (only if regenerating weights)
 

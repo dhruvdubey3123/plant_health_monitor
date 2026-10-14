@@ -21,9 +21,7 @@ data/test/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Models
-models/yolo/*.pt
-models/resnet/*.pth
+# Models (trained checkpoints are committed so the API runs from a clone)
 models/lstm/*.h5
 *.weights
 *.ckpt
@@ -52,5 +50,6 @@ logs/
 # YOLOv5 repo (too large)
 models/yolo/yolov5/
 
-# Pretrained weights
-*.pt
+# Pretrained backbone downloads (not our trained checkpoints)
+yolov5s.pt
+yolov5*.pt
